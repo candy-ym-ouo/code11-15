@@ -92,6 +92,35 @@ enum PersonRole {
   mentioned
 }
 
+enum Gender {
+  unknown
+  male
+  female
+}
+
+enum KinEdgeType {
+  parent
+  partner
+  sibling
+}
+
+enum KinEdgeOrigin {
+  manual
+  inferred
+}
+
+enum KinConfidence {
+  high
+  medium
+  low
+}
+
+enum KinIssueStatus {
+  open
+  ignored
+  resolved
+}
+
 enum JobType {
   media_thumbnail
   media_waveform
@@ -124,6 +153,7 @@ model User {
   versions      ItemVersion[]
   auditLogs     AuditLog[]
   refreshTokens RefreshToken[]
+  kinshipVersions KinshipVersion[] @relation("KinshipVersionCreator")
 
   @@map("users")
 }
@@ -134,6 +164,7 @@ model Family {
   description          String?
   defaultVisibility    Visibility @default(family) @map("default_visibility")
   allowViewerComment   Boolean    @default(false) @map("allow_viewer_comment")
+  kinshipAnchorPersonId String?  @map("kinship_anchor_person_id")
   createdBy            String     @map("created_by")
   createdAt            DateTime   @default(now()) @map("created_at")
   updatedAt            DateTime   @updatedAt @map("updated_at")
@@ -146,6 +177,9 @@ model Family {
   shareLinks ShareLink[]
   auditLogs  AuditLog[]
   settings   Setting[]
+  kinshipEdges KinshipEdge[]
+  kinshipVersions KinshipVersion[]
+  kinshipIssues KinshipIssue[]
 
   @@map("families")
 }
@@ -189,6 +223,7 @@ model Person {
   id            String    @id @default(cuid())
   familyId      String    @map("family_id")
   name          String
+  gender        Gender    @default(unknown)
   relation      String?
   birthYear     Int?      @map("birth_year")
   deathYear     Int?      @map("death_year")
@@ -203,8 +238,86 @@ model Person {
   family Family       @relation(fields: [familyId], references: [id], onDelete: Cascade)
   links  ItemPerson[]
 
+  // 关系图谱：以本人为两端的边（删除人物时一并删除，避免悬挂边）
+  edgesFrom KinshipEdge[] @relation("KinEdgeFrom")
+  edgesTo   KinshipEdge[] @relation("KinEdgeTo")
+
   @@index([familyId, name])
   @@map("people")
+}
+
+// 关系图谱的边。只有三种基础关系：
+// parent 有方向（from 是 to 的父母）；partner / sibling 对称。
+// 祖辈、叔侄、表亲等不落库，查询时沿边推导。
+model KinshipEdge {
+  id           String          @id @default(cuid())
+  familyId     String          @map("family_id")
+  fromPersonId String          @map("from_person_id")
+  toPersonId   String          @map("to_person_id")
+  type         KinEdgeType
+  origin       KinEdgeOrigin   @default(manual)
+  confidence   KinConfidence   @default(high)
+  confirmed    Boolean         @default(true)
+  note         String?
+  evidence     Json?
+  createdBy    String          @map("created_by")
+  createdAt    DateTime        @default(now()) @map("created_at")
+  updatedAt    DateTime        @updatedAt @map("updated_at")
+  deletedAt    DateTime?       @map("deleted_at")
+
+  family     Family @relation(fields: [familyId], references: [id], onDelete: Cascade)
+  fromPerson Person @relation("KinEdgeFrom", fields: [fromPersonId], references: [id], onDelete: Cascade)
+  toPerson   Person @relation("KinEdgeTo", fields: [toPersonId], references: [id], onDelete: Cascade)
+
+  // 唯一性靠应用层查重 + 迁移里的部分唯一索引（仅 deleted_at IS NULL），
+  // 因为 Prisma 的 @@unique 不支持带条件，而我们要允许「删除后重建」同一段关系。
+  @@index([fromPersonId, toPersonId, type])
+  @@index([familyId, type])
+  @@index([toPersonId])
+  @@map("kinship_edges")
+}
+
+// 图谱版本：每次人工校正/推导采纳/回滚前，把当时的全量人物+边冻结成 JSON 快照。
+// 回滚 = 读出快照整体重建边集合。人物本身的增删仍走人物模块，这里只管「关系」。
+model KinshipVersion {
+  id          String   @id @default(cuid())
+  familyId    String   @map("family_id")
+  version     Int
+  reason      String?
+  snapshot    Json
+  createdBy   String   @map("created_by")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  family Family @relation(fields: [familyId], references: [id], onDelete: Cascade)
+  creator User   @relation("KinshipVersionCreator", fields: [createdBy], references: [id])
+
+  @@unique([familyId, version])
+  @@index([familyId, createdAt])
+  @@map("kinship_versions")
+}
+
+// 矛盾记录：检测出的结构/事实问题。fingerprint 是问题内容的哈希，
+// 同一问题反复检测不会重复插库；用户「忽略」后再次出现也保持忽略。
+model KinshipIssue {
+  id          String         @id @default(cuid())
+  familyId    String         @map("family_id")
+  fingerprint String
+  kind        String
+  severity    String
+  message     String
+  edgeIds     String[]       @map("edge_ids")
+  personIds   String[]       @map("person_ids")
+  status      KinIssueStatus @default(open)
+  ignoredBy   String?        @map("ignored_by")
+  ignoredAt   DateTime?      @map("ignored_at")
+  createdAt   DateTime       @default(now()) @map("created_at")
+  updatedAt   DateTime       @updatedAt @map("updated_at")
+
+  family Family @relation(fields: [familyId], references: [id], onDelete: Cascade)
+
+  @@unique([familyId, fingerprint])
+  @@index([familyId, status])
+  @@map("kinship_issues")
 }
 
 model Item {

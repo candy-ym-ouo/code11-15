@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import fsp from 'node:fs/promises';
 import path from 'node:path';
 import archiver from 'archiver';
-import { CATEGORY_LABELS, ITEM_STATUS_LABELS, VISIBILITY_LABELS, formatAcquired, htmlToText } from '@heirloom/shared';
+import { CATEGORY_LABELS, ITEM_STATUS_LABELS, VISIBILITY_LABELS, formatAcquired, htmlToText, toDot, toEdgesCsv, toGedcom } from '@heirloom/shared';
 import type { Job } from '@prisma/client';
 import { prisma } from '../db';
 import { config } from '../config';
@@ -77,15 +77,19 @@ export async function buildExportZip(job: Job): Promise<{ file: string; items: n
   if (!familyId) throw new Error('导出任务缺少 familyId');
 
   const family = await prisma.family.findUniqueOrThrow({ where: { id: familyId } });
-  const items = await prisma.item.findMany({
-    where: { familyId, status: { not: 'trashed' } },
-    include: {
-      media: { where: { deletedAt: null }, orderBy: { sortOrder: 'asc' } },
-      people: { include: { person: true } },
-      creator: { select: { displayName: true } },
-    },
-    orderBy: { sortAt: 'asc' },
-  });
+  const [items, people, kinEdges] = await Promise.all([
+    prisma.item.findMany({
+      where: { familyId, status: { not: 'trashed' } },
+      include: {
+        media: { where: { deletedAt: null }, orderBy: { sortOrder: 'asc' } },
+        people: { include: { person: true } },
+        creator: { select: { displayName: true } },
+      },
+      orderBy: { sortAt: 'asc' },
+    }),
+    prisma.person.findMany({ where: { familyId, deletedAt: null, mergedIntoId: null }, orderBy: { name: 'asc' } }),
+    prisma.kinshipEdge.findMany({ where: { familyId, deletedAt: null } }),
+  ]);
 
   const outPath = exportZipPath(familyId, job.id);
   await fsp.mkdir(path.dirname(outPath), { recursive: true });
@@ -178,6 +182,45 @@ export async function buildExportZip(job: Job): Promise<{ file: string; items: n
 
   archive.append(csv.join('\n'), { name: `${root}/items.csv` });
   archive.append(mediaIndex.join('\n'), { name: `${root}/media/index.csv` });
+
+  // 家族关系图谱：GEDCOM（家谱软件可导入）+ Graphviz DOT（可渲染成图）+ CSV（Excel 核对）
+  const kinInput = {
+    people: people.map((p) => ({
+      id: p.id,
+      name: p.name,
+      gender: p.gender.toLowerCase() as 'unknown' | 'male' | 'female',
+      birthYear: p.birthYear,
+      deathYear: p.deathYear,
+      relation: p.relation,
+    })),
+    edges: kinEdges.map((e) => ({
+      id: e.id,
+      fromPersonId: e.fromPersonId,
+      toPersonId: e.toPersonId,
+      type: e.type.toLowerCase() as 'parent' | 'partner' | 'sibling',
+      origin: e.origin.toLowerCase() as 'manual' | 'inferred',
+      confidence: e.confidence.toLowerCase() as 'high' | 'medium' | 'low',
+      confirmed: e.confirmed,
+      note: e.note,
+      evidence: e.evidence ?? null,
+    })),
+    anchorPersonId: family.kinshipAnchorPersonId,
+  };
+  archive.append(toGedcom(kinInput, family.name), { name: `${root}/kinship/family.ged` });
+  archive.append(toDot(kinInput, `${family.name} · 家族关系图谱`), { name: `${root}/kinship/family.dot` });
+  archive.append(toEdgesCsv(kinInput), { name: `${root}/kinship/relations.csv` });
+  archive.append(
+    [
+      '家族关系图谱说明',
+      '',
+      'family.ged：GEDCOM 5.5.1 格式，可用 Gramps、MyHeritage、FamilySearch 等家谱软件导入。',
+      'family.dot：Graphviz 格式，安装 graphviz 后执行 `dot -Tpng family.dot -o family.png` 即可渲染成图片打印。',
+      'relations.csv：所有父母/配偶/兄弟姐妹关系的总表，Excel/WPS 可直接打开；虚线（未确认）边在「已确认」列标记为「否」。',
+      '',
+      '注意：祖辈、叔侄、表亲等关系没有单独存行，它们由父母/配偶/兄弟姐妹三种基础关系推导得出。',
+    ].join('\n'),
+    { name: `${root}/kinship/README.txt` },
+  );
   archive.append(
     [
       '家中物品来历册 · 导出包',
@@ -194,6 +237,7 @@ export async function buildExportZip(job: Job): Promise<{ file: string; items: n
       '4. media/index.csv 记录了每个文件的 sha256，可用以下命令校验：',
       '   shasum -a 256 <文件>      # macOS / Linux',
       '   certutil -hashfile <文件> SHA256   # Windows',
+      '5. kinship/ 是家族关系图谱：family.ged 可导入家谱软件，family.dot 可渲染成图，relations.csv 可在 Excel 里核对。',
       '',
       '这个导出包不依赖本系统，任何电脑都能离线打开。',
     ].join('\n'),

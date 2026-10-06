@@ -107,6 +107,7 @@ export function toPersonDto(p: Person & { _count?: { links: number } }) {
     id: p.id,
     familyId: p.familyId,
     name: p.name,
+    gender: p.gender,
     relation: p.relation,
     birthYear: p.birthYear,
     deathYear: p.deathYear,

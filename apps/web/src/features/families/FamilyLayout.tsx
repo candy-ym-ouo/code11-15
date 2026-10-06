@@ -15,6 +15,7 @@ export function FamilyLayout() {
     { to: `/f/${fid}/timeline`, label: '时间轴' },
     { to: `/f/${fid}/items`, label: '物品' },
     { to: `/f/${fid}/people`, label: '人物' },
+    { to: `/f/${fid}/kinship`, label: '图谱' },
     { to: `/f/${fid}/members`, label: '成员', roles: ['owner', 'admin'] as const },
     { to: `/f/${fid}/audit`, label: '动态', roles: ['owner', 'admin'] as const },
     { to: `/f/${fid}/settings`, label: '设置', roles: ['owner', 'admin'] as const },

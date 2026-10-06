@@ -1,4 +1,4 @@
-import type { Category, FamilyRole, ItemStatus, MediaKind, PersonRole, Precision, Visibility } from '../api/types';
+import type { Category, FamilyRole, ItemStatus, KinEdgeType, KinConfidence, MediaKind, PersonRole, Precision, Visibility } from '../api/types';
 
 export const CATEGORY_LABELS: Record<Category, string> = {
   furniture: '老家具',
@@ -78,6 +78,24 @@ export const MEDIA_KIND_LABELS: Record<MediaKind, string> = {
   document: '文件',
 };
 
+export const GENDER_LABELS: Record<'unknown' | 'male' | 'female', string> = {
+  unknown: '未填',
+  male: '男',
+  female: '女',
+};
+
+export const KIN_EDGE_LABELS: Record<KinEdgeType, string> = {
+  parent: '父母 → 子女',
+  partner: '配偶',
+  sibling: '兄弟姐妹',
+};
+
+export const KIN_CONFIDENCE_LABELS: Record<KinConfidence, string> = {
+  high: '确定',
+  medium: '较可能',
+  low: '待核实',
+};
+
 export const ACTION_LABELS: Record<string, string> = {
   'auth.register': '注册账号',
   'auth.login': '登录',
@@ -94,6 +112,14 @@ export const ACTION_LABELS: Record<string, string> = {
   'person.update': '修改人物',
   'person.delete': '删除人物',
   'person.merge': '合并人物',
+  'kinship.edge.create': '新增亲属关系',
+  'kinship.edge.update': '校正亲属关系',
+  'kinship.edge.delete': '删除亲属关系',
+  'kinship.infer': '采纳关系推导',
+  'kinship.anchor': '设置关系锚点',
+  'kinship.revert': '回滚关系图谱',
+  'kinship.issue.ignore': '处理矛盾提示',
+  'kinship.export': '导出关系图谱',
   'item.create': '新建条目',
   'item.update': '修改条目',
   'item.publish': '发布条目',

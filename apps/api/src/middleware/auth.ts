@@ -15,10 +15,13 @@ function bearer(req: Request): string | null {
  * <img>/<audio> 这类标签无法携带 Authorization 头，因此允许媒体 GET 请求
  * 通过 ?t=<access token> 传递凭证。仅限 GET 且路径包含 /media/，
  * 避免把令牌通道扩大到普通接口（令牌仍会出现在 access log 中，属已知取舍）。
+ * 文件下载（物品导出包、关系图谱导出）同理：浏览器直接导航带不上 Authorization 头。
  */
 function mediaQueryToken(req: Request): string | null {
   if (req.method !== 'GET') return null;
-  if (!req.path.includes('/media/')) return null;
+  const allowsQueryToken =
+    req.path.includes('/media/') || req.path.includes('/exports/') || req.path.includes('/kinship/export');
+  if (!allowsQueryToken) return null;
   const token = req.query.t;
   return typeof token === 'string' && token.length > 0 ? token : null;
 }

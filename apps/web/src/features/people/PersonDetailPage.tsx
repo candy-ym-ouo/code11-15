@@ -26,10 +26,14 @@ export function PersonDetailPage() {
           <h1>{person.name}</h1>
           <p className="page-head__sub">
             {person.relation ? `${person.relation} · ` : ''}
+            {person.gender !== 'unknown' ? `${person.gender === 'female' ? '女' : '男'} · ` : ''}
             {person.birthYear ? `${person.birthYear}${person.deathYear ? `–${person.deathYear}` : ''}` : '年份未记录'}
           </p>
         </div>
-        <Button onClick={() => navigate(-1)}>返回</Button>
+        <div className="row" style={{ gap: 'var(--space-2)' }}>
+          <Button onClick={() => navigate(`/f/${fid}/kinship`)}>看关系图谱</Button>
+          <Button variant="ghost" onClick={() => navigate(-1)}>返回</Button>
+        </div>
       </div>
 
       {person.bio ? (

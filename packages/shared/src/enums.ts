@@ -63,6 +63,40 @@ export const PERSON_ROLE_LABELS: Record<PersonRole, string> = {
   mentioned: '故事中提及',
 };
 
+export const GENDERS = ['unknown', 'male', 'female'] as const;
+export type Gender = (typeof GENDERS)[number];
+
+export const GENDER_LABELS: Record<Gender, string> = {
+  unknown: '未填',
+  male: '男',
+  female: '女',
+};
+
+/** 关系图谱的基础边：祖孙/叔侄等都靠这三种边推导，不单独存储。 */
+export const KIN_EDGE_TYPES = ['parent', 'partner', 'sibling'] as const;
+export type KinEdgeType = (typeof KIN_EDGE_TYPES)[number];
+
+export const KIN_EDGE_TYPE_LABELS: Record<KinEdgeType, string> = {
+  parent: '父母 → 子女',
+  partner: '配偶',
+  sibling: '兄弟姐妹',
+};
+
+export const KIN_EDGE_ORIGINS = ['manual', 'inferred'] as const;
+export type KinEdgeOrigin = (typeof KIN_EDGE_ORIGINS)[number];
+
+export const KIN_CONFIDENCES = ['high', 'medium', 'low'] as const;
+export type KinConfidence = (typeof KIN_CONFIDENCES)[number];
+
+export const KIN_CONFIDENCE_LABELS: Record<KinConfidence, string> = {
+  high: '确定',
+  medium: '较可能',
+  low: '待核实',
+};
+
+export const KIN_ISSUE_SEVERITIES = ['error', 'warning'] as const;
+export type KinIssueSeverity = (typeof KIN_ISSUE_SEVERITIES)[number];
+
 export const FAMILY_ROLES = ['owner', 'admin', 'editor', 'contributor', 'viewer'] as const;
 export type FamilyRole = (typeof FAMILY_ROLES)[number];
 
@@ -105,6 +139,14 @@ export const AUDIT_ACTIONS = [
   'person.update',
   'person.delete',
   'person.merge',
+  'kinship.edge.create',
+  'kinship.edge.update',
+  'kinship.edge.delete',
+  'kinship.infer',
+  'kinship.anchor',
+  'kinship.revert',
+  'kinship.issue.ignore',
+  'kinship.export',
   'item.create',
   'item.update',
   'item.publish',

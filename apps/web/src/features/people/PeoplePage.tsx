@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { api, ApiError } from '../../api/client';
-import { Button, EmptyState, Field, Modal, Spinner, TextArea, TextInput } from '../../components/ui';
+import { Button, EmptyState, Field, Modal, Select, Spinner, TextArea, TextInput } from '../../components/ui';
 import { useToast } from '../../components/Toast';
 import { useFamily } from '../families/useFamily';
 import type { Person } from '../../api/types';
@@ -13,7 +13,7 @@ export function PeoplePage() {
   const { push } = useToast();
   const { data: familyData } = useFamily(fid);
   const [open, setOpen] = useState(false);
-  const [form, setForm] = useState({ name: '', relation: '', birthYear: '', deathYear: '', bio: '' });
+  const [form, setForm] = useState({ name: '', gender: 'unknown' as 'unknown' | 'male' | 'female', relation: '', birthYear: '', deathYear: '', bio: '' });
   const [q, setQ] = useState('');
   const [error, setError] = useState<string | null>(null);
 
@@ -27,6 +27,7 @@ export function PeoplePage() {
     mutationFn: () =>
       api.post(`/families/${fid}/people`, {
         name: form.name.trim(),
+        gender: form.gender,
         relation: form.relation.trim() || null,
         birthYear: form.birthYear ? Number(form.birthYear) : null,
         deathYear: form.deathYear ? Number(form.deathYear) : null,
@@ -35,7 +36,7 @@ export function PeoplePage() {
     onSuccess: async () => {
       push('人物已建立', 'success');
       setOpen(false);
-      setForm({ name: '', relation: '', birthYear: '', deathYear: '', bio: '' });
+      setForm({ name: '', gender: 'unknown', relation: '', birthYear: '', deathYear: '', bio: '' });
       await queryClient.invalidateQueries({ queryKey: ['people', fid] });
     },
     onError: (err) => setError(err instanceof ApiError ? err.message : '保存失败'),
@@ -123,9 +124,18 @@ export function PeoplePage() {
         <Field label="称呼" required hint="例如「外公」「王阿姨」">
           <TextInput value={form.name} onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))} autoFocus />
         </Field>
-        <Field label="关系" hint="例如「外公」「老同事」">
-          <TextInput value={form.relation} onChange={(e) => setForm((p) => ({ ...p, relation: e.target.value }))} />
-        </Field>
+        <div className="form-grid">
+          <Field label="性别" hint="用于区分爷爷/外公、姑姑/舅舅等">
+            <Select value={form.gender} onChange={(e) => setForm((p) => ({ ...p, gender: e.target.value as typeof form.gender }))}>
+              <option value="unknown">未填</option>
+              <option value="male">男</option>
+              <option value="female">女</option>
+            </Select>
+          </Field>
+          <Field label="关系" hint="相对你本人的称呼，如「外公」">
+            <TextInput value={form.relation} onChange={(e) => setForm((p) => ({ ...p, relation: e.target.value }))} />
+          </Field>
+        </div>
         <div className="form-grid">
           <Field label="出生年份">
             <TextInput

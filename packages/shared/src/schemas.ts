@@ -2,6 +2,8 @@ import { z } from 'zod';
 import {
   CATEGORIES,
   FAMILY_ROLES,
+  GENDERS,
+  KIN_EDGE_TYPES,
   MEDIA_KINDS,
   NOTE_TYPES,
   PERSON_ROLES,
@@ -72,6 +74,7 @@ export const updateMemberSchema = z.discriminatedUnion('op', [
 
 export const personSchema = z.object({
   name: trimmed(60),
+  gender: z.enum(GENDERS).default('unknown'),
   relation: optionalText(40),
   birthYear: z.number().int().min(1800).max(2200).optional().nullable(),
   deathYear: z.number().int().min(1800).max(2200).optional().nullable(),
@@ -81,6 +84,37 @@ export const personSchema = z.object({
 
 export const mergePersonSchema = z.object({
   targetPersonId: z.string().cuid(),
+});
+
+/** 关系图谱：新建/修改一条亲属边。parent 有方向，partner/sibling 对称。 */
+export const kinEdgeSchema = z.object({
+  fromPersonId: z.string().cuid(),
+  toPersonId: z.string().cuid(),
+  type: z.enum(KIN_EDGE_TYPES),
+  note: optionalText(200),
+  confirmed: z.boolean().optional(),
+});
+
+export const updateKinEdgeSchema = z.object({
+  note: optionalText(200),
+  confirmed: z.boolean().optional(),
+  confidence: z.enum(['high', 'medium', 'low']).optional(),
+});
+
+export const anchorSchema = z.object({
+  personId: z.string().cuid().nullable(),
+});
+
+export const ignoreIssueSchema = z.object({
+  ignore: z.boolean(),
+});
+
+export const revertKinshipSchema = z.object({
+  versionId: z.string().cuid(),
+});
+
+export const applyInferenceSchema = z.object({
+  includeRoleSuggestions: z.boolean().optional().default(false),
 });
 
 export const itemPersonSchema = z.object({

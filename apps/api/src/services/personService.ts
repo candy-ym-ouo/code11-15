@@ -13,6 +13,7 @@ export interface ActorMeta {
 
 export interface PersonInput {
   name: string;
+  gender?: 'unknown' | 'male' | 'female';
   relation?: string | null;
   birthYear?: number | null;
   deathYear?: number | null;
@@ -71,6 +72,7 @@ export async function createPerson(actorId: string, ctx: FamilyContext, input: P
       data: {
         familyId: ctx.familyId,
         name: input.name,
+        gender: input.gender ?? 'unknown',
         relation: input.relation ?? null,
         birthYear: input.birthYear ?? null,
         deathYear: input.deathYear ?? null,
@@ -112,6 +114,7 @@ export async function updatePerson(
       where: { id: personId },
       data: {
         name: input.name ?? undefined,
+        gender: input.gender ?? undefined,
         relation: input.relation === undefined ? undefined : input.relation,
         birthYear: input.birthYear === undefined ? undefined : input.birthYear,
         deathYear: input.deathYear === undefined ? undefined : input.deathYear,
@@ -190,6 +193,44 @@ export async function mergePerson(
         await tx.itemPerson.update({ where: { id: link.id }, data: { personId: targetId } });
       }
     }
+
+    // 亲属边同样要并到目标人物：重复边软删，其余改挂（parent 边需按方向分别查重）
+    const kinEdges = await tx.kinshipEdge.findMany({ where: { OR: [{ fromPersonId: sourceId }, { toPersonId: sourceId }], deletedAt: null } });
+    for (const ke of kinEdges) {
+      const newFrom = ke.fromPersonId === sourceId ? targetId : ke.fromPersonId;
+      const newTo = ke.toPersonId === sourceId ? targetId : ke.toPersonId;
+      if (newFrom === newTo) {
+        // 合并后变成自环，直接软删（矛盾检测也会报，但源头应在合并时清掉）
+        await tx.kinshipEdge.update({ where: { id: ke.id }, data: { deletedAt: new Date() } });
+        continue;
+      }
+      const clash = await tx.kinshipEdge.findFirst({
+        where: {
+          id: { not: ke.id },
+          familyId: ctx.familyId,
+          deletedAt: null,
+          type: ke.type,
+          OR: ke.type === 'parent'
+            ? [{ fromPersonId: newFrom, toPersonId: newTo }]
+            : [
+                { fromPersonId: newFrom, toPersonId: newTo },
+                { fromPersonId: newTo, toPersonId: newFrom },
+              ],
+        },
+      });
+      if (clash) {
+        await tx.kinshipEdge.update({ where: { id: ke.id }, data: { deletedAt: new Date() } });
+      } else {
+        await tx.kinshipEdge.update({ where: { id: ke.id }, data: { fromPersonId: newFrom, toPersonId: newTo } });
+      }
+    }
+
+    // 若家庭锚点正是被合并的人，挪到目标人物
+    const family = await tx.family.findUnique({ where: { id: ctx.familyId } });
+    if (family?.kinshipAnchorPersonId === sourceId) {
+      await tx.family.update({ where: { id: ctx.familyId }, data: { kinshipAnchorPersonId: targetId } });
+    }
+
     await tx.person.update({ where: { id: sourceId }, data: { deletedAt: new Date(), mergedIntoId: targetId } });
     await audit.record(
       {

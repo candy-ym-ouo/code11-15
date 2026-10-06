@@ -4,6 +4,12 @@ export type Visibility = 'private' | 'family' | 'selected' | 'link';
 export type Precision = 'day' | 'month' | 'year' | 'decade' | 'unknown';
 export type FamilyRole = 'owner' | 'admin' | 'editor' | 'contributor' | 'viewer';
 export type PersonRole = 'source' | 'gifted' | 'inherited' | 'owner' | 'mentioned';
+export type Gender = 'unknown' | 'male' | 'female';
+export type KinEdgeType = 'parent' | 'partner' | 'sibling';
+export type KinEdgeOrigin = 'manual' | 'inferred';
+export type KinConfidence = 'high' | 'medium' | 'low';
+export type KinIssueSeverity = 'error' | 'warning';
+export type KinIssueStatus = 'open' | 'ignored' | 'resolved';
 export type MediaKind = 'image' | 'audio' | 'document';
 export type MediaStatus = 'processing' | 'ready' | 'failed';
 
@@ -116,12 +122,77 @@ export interface Person {
   id: string;
   familyId: string;
   name: string;
+  gender: Gender;
   relation: string | null;
   birthYear: number | null;
   deathYear: number | null;
   bio: string | null;
   itemCount: number;
   createdAt: string;
+}
+
+export interface KinGraphPerson {
+  id: string;
+  name: string;
+  gender: Gender;
+  relation: string | null;
+  birthYear: number | null;
+  deathYear: number | null;
+  derivedTitle: string | null;
+}
+
+export interface KinEdge {
+  id: string;
+  fromPersonId: string;
+  toPersonId: string;
+  type: KinEdgeType;
+  origin: KinEdgeOrigin;
+  confidence: KinConfidence;
+  confirmed: boolean;
+  note: string | null;
+  evidence: unknown;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface KinGraph {
+  anchorPersonId: string | null;
+  people: KinGraphPerson[];
+  edges: KinEdge[];
+}
+
+export interface KinIssue {
+  id: string;
+  kind: string;
+  severity: KinIssueSeverity;
+  message: string;
+  edgeIds: string[];
+  personIds: string[];
+  status: KinIssueStatus;
+}
+
+export interface InferenceDraftEdge {
+  type: KinEdgeType;
+  fromPersonId: string;
+  toPersonId: string;
+  confidence: KinConfidence;
+  fromName: string;
+  toName: string;
+  evidence: { source: 'person_label' | 'item_role'; label?: string; itemIds?: string[]; reason: string };
+}
+
+export interface KinInference {
+  labelEdges: InferenceDraftEdge[];
+  roleSuggestions: InferenceDraftEdge[];
+  unresolved: { personId: string; label: string; reason: string }[];
+}
+
+export interface KinVersion {
+  id: string;
+  version: number;
+  reason: string | null;
+  createdAt: string;
+  creator: { displayName: string; avatarColor: string };
 }
 
 export interface PersonDetail extends Person {
