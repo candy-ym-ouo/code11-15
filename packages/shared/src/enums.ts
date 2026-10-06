@@ -55,6 +55,21 @@ export type NoteStatus = (typeof NOTE_STATUSES)[number];
 export const PERSON_ROLES = ['source', 'gifted', 'inherited', 'owner', 'mentioned'] as const;
 export type PersonRole = (typeof PERSON_ROLES)[number];
 
+/** 家族关系图谱：基础关系类型（parent 有向：from 是父母，to 是子女；其余无向） */
+export const KINSHIP_KINDS = ['parent', 'spouse', 'sibling', 'kin'] as const;
+export type KinshipKind = (typeof KINSHIP_KINDS)[number];
+
+export const KINSHIP_KIND_LABELS: Record<KinshipKind, string> = {
+  parent: '父母',
+  spouse: '配偶',
+  sibling: '同胞',
+  kin: '其他亲属',
+};
+
+/** 关系边的来源状态：手工 / 推导采纳 / 待确认建议 / 人工忽略 */
+export const KINSHIP_SOURCES = ['manual', 'derived', 'suggested', 'ignored'] as const;
+export type KinshipSource = (typeof KINSHIP_SOURCES)[number];
+
 export const PERSON_ROLE_LABELS: Record<PersonRole, string> = {
   source: '来源',
   gifted: '赠送',
@@ -105,6 +120,12 @@ export const AUDIT_ACTIONS = [
   'person.update',
   'person.delete',
   'person.merge',
+  'kinship.edge.create',
+  'kinship.edge.update',
+  'kinship.edge.delete',
+  'kinship.infer',
+  'kinship.rollback',
+  'kinship.export',
   'item.create',
   'item.update',
   'item.publish',

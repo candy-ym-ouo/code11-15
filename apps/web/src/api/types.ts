@@ -128,6 +128,73 @@ export interface PersonDetail extends Person {
   items: (Item & { role: PersonRole })[];
 }
 
+export type KinshipKind = 'parent' | 'spouse' | 'sibling' | 'kin';
+export type KinshipSource = 'manual' | 'derived' | 'suggested' | 'ignored';
+
+export interface Relationship {
+  id: string;
+  familyId: string;
+  fromPersonId: string;
+  toPersonId: string;
+  kind: KinshipKind;
+  label: string | null;
+  note: string | null;
+  source: KinshipSource;
+  basis: unknown;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface KinshipIssue {
+  code: string;
+  severity: 'error' | 'warning';
+  message: string;
+  edgeIds: string[];
+  personIds: string[];
+  suggestion?: { type: 'delete_edge' | 'ignore_edge' | 'edit_relation'; targetId?: string };
+}
+
+export interface KinshipGraph {
+  people: {
+    id: string;
+    name: string;
+    relation: string | null;
+    birthYear: number | null;
+    deathYear: number | null;
+  }[];
+  edges: Relationship[];
+  counts: {
+    people: number;
+    edges: number;
+    manual: number;
+    derived: number;
+    suggested: number;
+    issues: number;
+    errors: number;
+  };
+  issues: KinshipIssue[];
+}
+
+export interface KinshipSuggestion {
+  fromPersonId: string;
+  toPersonId: string;
+  kind: KinshipKind;
+  label: string | null;
+  confidence: number;
+  reason: string;
+  basis: { type: string; detail: Record<string, unknown> };
+}
+
+export interface RelationshipVersion {
+  id: string;
+  version: number;
+  action: string;
+  reason: string | null;
+  snapshot: unknown;
+  createdBy: string;
+  createdAt: string;
+}
+
 export interface Member {
   userId: string;
   role: FamilyRole;

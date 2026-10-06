@@ -2,6 +2,7 @@ import { z } from 'zod';
 import {
   CATEGORIES,
   FAMILY_ROLES,
+  KINSHIP_KINDS,
   MEDIA_KINDS,
   NOTE_TYPES,
   PERSON_ROLES,
@@ -83,6 +84,26 @@ export const mergePersonSchema = z.object({
   targetPersonId: z.string().cuid(),
 });
 
+export const createRelationshipSchema = z.object({
+  fromPersonId: z.string().cuid(),
+  toPersonId: z.string().cuid(),
+  kind: z.enum(KINSHIP_KINDS),
+  label: optionalText(40),
+  note: optionalText(500),
+  source: z.enum(['manual', 'derived']).default('manual'),
+});
+
+export const updateRelationshipSchema = z.object({
+  kind: z.enum(KINSHIP_KINDS).optional(),
+  label: optionalText(40),
+  note: optionalText(500),
+  source: z.enum(['manual', 'derived', 'suggested', 'ignored']).optional(),
+});
+
+export const rollbackRelationshipSchema = z.object({
+  reason: optionalText(200),
+});
+
 export const itemPersonSchema = z.object({
   personId: z.string().cuid(),
   role: z.enum(PERSON_ROLES).default('source'),
@@ -162,6 +183,8 @@ export type ListItemsQuery = z.infer<typeof listItemsQuerySchema>;
 export type CreateFamilyInput = z.infer<typeof createFamilySchema>;
 export type CreateInviteInput = z.infer<typeof createInviteSchema>;
 export type PersonInput = z.infer<typeof personSchema>;
+export type CreateRelationshipInput = z.infer<typeof createRelationshipSchema>;
+export type UpdateRelationshipInput = z.infer<typeof updateRelationshipSchema>;
 export type CreateShareLinkInput = z.infer<typeof createShareLinkSchema>;
 
 /** 去 HTML 标签，得到用于检索的纯文本（服务端还会用 DOMPurify 做一次白名单净化）。 */

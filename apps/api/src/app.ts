@@ -16,6 +16,7 @@ import { familiesRouter } from './routes/families';
 import { itemsRouter } from './routes/items';
 import { mediaRouter } from './routes/media';
 import { peopleRouter } from './routes/people';
+import { kinshipRouter } from './routes/kinship';
 import { shareLinksRouter } from './routes/shareLinks';
 import { exportsRouter } from './routes/exports';
 import { invitesRouter } from './routes/invites';
@@ -126,6 +127,7 @@ export function createApp() {
   app.use('/api/v1/families', csrfGuard, attachUser, familiesRouter);
   app.use('/api/v1/families/:fid/items', csrfGuard, attachUser, itemsRouter);
   app.use('/api/v1/families/:fid/people', csrfGuard, attachUser, peopleRouter);
+  app.use('/api/v1/families/:fid/kinship', csrfGuard, attachUser, kinshipRouter);
   app.use('/api/v1/families/:fid/media', csrfGuard, attachUser, mediaRouter);
   app.use('/api/v1/families/:fid/share-links', csrfGuard, attachUser, shareLinksRouter);
   app.use('/api/v1/families/:fid/exports', csrfGuard, attachUser, exportsRouter);

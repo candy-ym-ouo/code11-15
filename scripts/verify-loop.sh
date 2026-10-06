@@ -51,12 +51,12 @@ echo "== 家中物品来历册 · 闭环验证 =="
 echo "API: $API"
 
 # ---------- 1. 健康检查 ----------
-step "1/10 健康检查"
+step "1/11 健康检查"
 code=$(curl -sS -o "$WORK/body" -w '%{http_code}' "$API/healthz"); expect "$code" 200 "/healthz 存活"
 code=$(curl -sS -o "$WORK/body" -w '%{http_code}' "$API/readyz");  expect "$code" 200 "/readyz 依赖就绪（DB/存储/worker）"
 
 # ---------- 2. 注册首个用户（成为系统管理员） ----------
-step "2/10 注册与登录"
+step "2/11 注册与登录"
 EMAIL_A="owner-$RUN_ID@example.com"
 code=$(req POST "$V1/auth/register" "$JAR_A" "{\"email\":\"$EMAIL_A\",\"password\":\"family2026\",\"displayName\":\"大姐\"}")
 if [ "$code" = "201" ]; then
@@ -86,7 +86,7 @@ code=$(curl -sS -o /dev/null -w '%{http_code}' -X POST -b "$JAR_A" -H 'X-CSRF-To
 expect "$code" 403 "CSRF 不匹配时拒绝刷新"
 
 # ---------- 3. 建家庭 ----------
-step "3/10 创建家庭"
+step "3/11 创建家庭"
 code=$(req POST "$V1/families" "$JAR_A" "{\"name\":\"老张家-$RUN_ID\"}" "$TOKEN_A")
 expect "$code" 201 "创建家庭"
 FID=$(json 'd.family.id' < "$WORK/body")
@@ -96,7 +96,7 @@ ROLE=$(json 'd.myRole' < "$WORK/body")
 if [ "$ROLE" = "owner" ]; then ok "创建者角色为 owner"; else bad "创建者角色应为 owner，实际 $ROLE"; fi
 
 # ---------- 4. 人物 + 条目 ----------
-step "4/10 建立来源人物与物品条目"
+step "4/11 建立来源人物与物品条目"
 code=$(req POST "$V1/families/$FID/people" "$JAR_A" '{"name":"外公","relation":"外公","birthYear":1932}' "$TOKEN_A")
 expect "$code" 201 "新建来源人物「外公」"
 PID=$(json 'd.person.id' < "$WORK/body")
@@ -136,7 +136,7 @@ for spec in "souvenir|结婚时的搪瓷缸" "receipt|1983 年的自行车发票
 done
 
 # ---------- 5. 媒体上传 ----------
-step "5/10 上传图片与音频"
+step "5/11 上传图片与音频"
 node -e '
 const fs=require("fs");
 const png=Buffer.from("iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAHElEQVQ4jWNgYGD4z4AEGAOxGkVg1CgCowYAAJ8kE/0kZ0QpAAAAAElFTkSuQmCC","base64");
@@ -181,7 +181,7 @@ code=$(curl -sS -o /dev/null -w '%{http_code}' -H "Authorization: Bearer $TOKEN_
 expect "$code" 206 "音频原始文件支持 Range 请求（可拖动播放）"
 
 # ---------- 6. 发布 + 补充故事 ----------
-step "6/10 发布条目与家人补充故事"
+step "6/11 发布条目与家人补充故事"
 code=$(req POST "$V1/families/$FID/items/$IID/publish" "$JAR_A" "" "$TOKEN_A")
 expect "$code" 200 "草稿发布为已发布"
 
@@ -198,7 +198,7 @@ VER_COUNT=$(json 'd.versions.length' < "$WORK/body")
 if [ "$VER_COUNT" -ge 2 ]; then ok "版本历史已记录（$VER_COUNT 个版本）"; else bad "版本历史异常：$VER_COUNT"; fi
 
 # ---------- 7. 邀请家人 + 权限边界 ----------
-step "7/10 邀请家人与权限边界"
+step "7/11 邀请家人与权限边界"
 code=$(req POST "$V1/families/$FID/invites" "$JAR_A" '{"role":"viewer","expiresInDays":7,"maxUses":1,"note":"给小妹"}' "$TOKEN_A")
 expect "$code" 201 "生成只读成员的邀请码"
 INVITE_CODE=$(json 'd.invite.code' < "$WORK/body")
@@ -231,7 +231,7 @@ PRIVATE_ID=$(json 'd.item.id' < "$WORK/body")
 if [ -n "$PRIVATE_ID" ]; then ok "创建 private 条目"; else bad "private 条目创建失败"; fi
 
 # ---------- 8. 检索与时间轴 ----------
-step "8/10 检索与时间轴"
+step "8/11 检索与时间轴"
 code=$(req GET "$V1/families/$FID/items?q=%E6%A8%9F%E6%9C%A8" "$JAR_A" "" "$TOKEN_A")
 expect "$code" 200 "关键词检索（樟木）"
 HITS=$(json 'd.items.length' < "$WORK/body")
@@ -249,7 +249,7 @@ if [ "$GROUPS" -ge 1 ]; then ok "时间轴返回 $GROUPS 个时段分组"; else 
 code=$(req GET "$V1/families/$FID/stats" "$JAR_A" "" "$TOKEN_A"); expect "$code" 200 "家庭统计"
 
 # ---------- 9. 分享链接 ----------
-step "9/10 对外分享链接"
+step "9/11 对外分享链接"
 code=$(req POST "$V1/families/$FID/share-links" "$JAR_A" "{\"itemIds\":[\"$IID\"],\"expiresInDays\":7,\"password\":\"zhangjia\",\"label\":\"给二叔看看\"}" "$TOKEN_A")
 expect "$code" 201 "创建带密码的分享链接"
 SHARE_TOKEN=$(json 'd.shareLink.token' < "$WORK/body")
@@ -267,8 +267,115 @@ if [ "$SHARED_ITEMS" = "1" ]; then ok "访客只看到被分享的 1 条"; else 
 code=$(curl -sS -o /dev/null -w '%{http_code}' -X POST -H 'Content-Type: application/json' --data '{"password":"bad"}' "$V1/public/share/$SHARE_TOKEN")
 expect "$code" 401 "密码错误被拒绝"
 
-# ---------- 10. 导出 / 审计 / 回收站 ----------
-step "10/10 导出、审计与回收站"
+# ---------- 10. 家族关系图谱：推导 → 采纳 → 矛盾检测 → 人工校正 → 版本回滚 → 导出 ----------
+step "10/11 家族关系图谱"
+
+# 再造一组典型亲属：爸爸/妈妈/叔叔 共现于一件物品；本人+爷爷另一件
+code=$(req POST "$V1/families/$FID/people" "$JAR_A" '{"name":"爷爷","relation":"爷爷","birthYear":1928}' "$TOKEN_A"); expect "$code" 201 "新建人物「爷爷」"
+P_GRAND=$(json 'd.person.id' < "$WORK/body")
+code=$(req POST "$V1/families/$FID/people" "$JAR_A" '{"name":"爸爸","relation":"爸爸","birthYear":1955}' "$TOKEN_A"); expect "$code" 201 "新建人物「爸爸」"
+P_DAD=$(json 'd.person.id' < "$WORK/body")
+code=$(req POST "$V1/families/$FID/people" "$JAR_A" '{"name":"妈妈","relation":"妈妈","birthYear":1958}' "$TOKEN_A"); expect "$code" 201 "新建人物「妈妈」"
+P_MOM=$(json 'd.person.id' < "$WORK/body")
+code=$(req POST "$V1/families/$FID/people" "$JAR_A" '{"name":"叔叔","relation":"叔叔","birthYear":1962}' "$TOKEN_A"); expect "$code" 201 "新建人物「叔叔」"
+P_UNCLE=$(json 'd.person.id' < "$WORK/body")
+code=$(req POST "$V1/families/$FID/people" "$JAR_A" '{"name":"本人","relation":"本人","birthYear":1985}' "$TOKEN_A"); expect "$code" 201 "新建人物「本人」"
+P_SELF=$(json 'd.person.id' < "$WORK/body")
+
+req POST "$V1/families/$FID/items" "$JAR_A" "{\"title\":\"全家福照片\",\"category\":\"souvenir\",\"status\":\"published\",\"visibility\":\"family\",\"people\":[{\"personId\":\"$P_DAD\",\"role\":\"mentioned\"},{\"personId\":\"$P_MOM\",\"role\":\"mentioned\"},{\"personId\":\"$P_UNCLE\",\"role\":\"mentioned\"}]}" "$TOKEN_A" > /dev/null
+req POST "$V1/families/$FID/items" "$JAR_A" "{\"title\":\"爷爷的怀表\",\"category\":\"souvenir\",\"status\":\"published\",\"visibility\":\"family\",\"people\":[{\"personId\":\"$P_GRAND\",\"role\":\"source\"},{\"personId\":\"$P_SELF\",\"role\":\"owner\"}]}" "$TOKEN_A" > /dev/null
+
+code=$(req GET "$V1/families/$FID/kinship/infer" "$JAR_A" "" "$TOKEN_A"); expect "$code" 200 "运行亲属推导"
+SUGG_N=$(json 'd.suggestions.length' < "$WORK/body")
+if [ "$SUGG_N" -ge 3 ]; then ok "推导出 $SUGG_N 条候选关系（配偶/父母/同胞）"; else bad "推导结果过少：$SUGG_N"; fi
+# 应包含 爸爸↔妈妈(spouse)、爸爸↔叔叔(sibling)
+if node -e "const d=JSON.parse(require('fs').readFileSync(0,'utf8'));process.exit(d.suggestions.some(s=>s.kind==='spouse')&&d.suggestions.some(s=>s.kind==='sibling')?0:1)" < "$WORK/body"; then
+  ok "推导类型包含配偶与同胞"
+else
+  bad "推导缺少配偶/同胞类型"
+fi
+
+code=$(req POST "$V1/families/$FID/kinship/infer/persist-all" "$JAR_A" "{\"adopt\":true,\"items\":$(json 'JSON.stringify(d.suggestions)' < "$WORK/body")}" "$TOKEN_A")
+expect "$code" 201 "批量采纳推导建议"
+
+code=$(req GET "$V1/families/$FID/kinship/graph" "$JAR_A" "" "$TOKEN_A"); expect "$code" 200 "读取关系图谱"
+EDGE_N=$(json 'd.graph.edges.length' < "$WORK/body")
+if [ "$EDGE_N" -ge 3 ]; then ok "图谱已有 $EDGE_N 条有效边"; else bad "图谱边数不足：$EDGE_N"; fi
+ISSUE_N=$(json 'd.graph.issues.length' < "$WORK/body")
+ok "矛盾检测返回 $ISSUE_N 条（正常数据应为 0）"
+
+# 手工连一条错误边：爷爷是爸爸的「同胞」→ 与已有的 parent 边冲突
+code=$(req POST "$V1/families/$FID/kinship/edges" "$JAR_A" "{\"fromPersonId\":\"$P_GRAND\",\"toPersonId\":\"$P_DAD\",\"kind\":\"sibling\"}" "$TOKEN_A")
+expect "$code" 201 "人工录入一条关系（制造冲突）"
+BAD_EDGE=$(json 'd.relationship.id' < "$WORK/body")
+code=$(req GET "$V1/families/$FID/kinship/graph" "$JAR_A" "" "$TOKEN_A")
+if node -e "const d=JSON.parse(require('fs').readFileSync(0,'utf8'));process.exit(d.graph.issues.some(i=>i.code==='edge_conflict')?0:1)" < "$WORK/body"; then
+  ok "检测出 edge_conflict 矛盾（同一对人既是父子又是兄弟）"
+else
+  bad "未检测出关系冲突"
+fi
+
+# 人工校正：删掉错误边
+code=$(req DELETE "$V1/families/$FID/kinship/edges/$BAD_EDGE" "$JAR_A" "" "$TOKEN_A"); expect "$code" 204 "人工删除错误关系"
+
+# 再造一个年龄硬矛盾：爸爸出生年改成晚于儿子（通过更新人物年份），检测 parent_age
+code=$(req PATCH "$V1/families/$FID/people/$P_GRAND" "$JAR_A" '{"birthYear":1990}' "$TOKEN_A"); expect "$code" 200 "更新爷爷出生年份（制造年龄矛盾）"
+code=$(req GET "$V1/families/$FID/kinship/graph" "$JAR_A" "" "$TOKEN_A")
+if node -e "const d=JSON.parse(require('fs').readFileSync(0,'utf8'));process.exit(d.graph.issues.some(i=>i.code==='parent_age'&&i.severity==='error')?0:1)" < "$WORK/body"; then
+  ok "检测出 parent_age 硬矛盾（长辈比晚辈出生还晚）"
+else
+  bad "未检测出年龄矛盾"
+fi
+code=$(req PATCH "$V1/families/$FID/people/$P_GRAND" "$JAR_A" '{"birthYear":1928}' "$TOKEN_A") > /dev/null 2>&1
+
+# 版本历史：至少 采纳/手工建边/删边 三版
+code=$(req GET "$V1/families/$FID/kinship/versions" "$JAR_A" "" "$TOKEN_A"); expect "$code" 200 "读取版本历史"
+VER_N=$(json 'd.versions.length' < "$WORK/body")
+if [ "$VER_N" -ge 3 ]; then ok "已留痕 $VER_N 个版本"; else bad "版本数不足：$VER_N"; fi
+FIRST_VER=$(json 'd.versions[d.versions.length-1].version' < "$WORK/body")
+# v1 快照在「批量采纳」之后拍摄，里面应包含当时采纳的全部边
+FIRST_VER_EDGES=$(json 'd.versions[d.versions.length-1].snapshot.edges.filter(e=>!e.deleted).length' < "$WORK/body")
+if [ "$FIRST_VER_EDGES" -ge 3 ]; then ok "v$FIRST_VER 快照含 $FIRST_VER_EDGES 条边"; else bad "首版快照边数异常：$FIRST_VER_EDGES"; fi
+
+# 回滚到最早版本：当前多出的手工冲突边应消失，恢复成 v1 的样子
+code=$(req POST "$V1/families/$FID/kinship/versions/$FIRST_VER/rollback" "$JAR_A" '{"reason":"闭环测试回滚"}' "$TOKEN_A")
+expect "$code" 200 "回滚到 v$FIRST_VER"
+code=$(req GET "$V1/families/$FID/kinship/graph" "$JAR_A" "" "$TOKEN_A")
+EDGE_AFTER=$(json 'd.graph.edges.length' < "$WORK/body")
+if [ "$EDGE_AFTER" = "$FIRST_VER_EDGES" ]; then ok "回滚后边数恢复为 v$FIRST_VER 的 $EDGE_AFTER 条"; else bad "回滚未生效（期望 $FIRST_VER_EDGES，实际 $EDGE_AFTER）"; fi
+# 回滚后冲突应随之消失
+if node -e "const d=JSON.parse(require('fs').readFileSync(0,'utf8'));process.exit(d.graph.issues.some(i=>i.code==='edge_conflict')?1:0)" < "$WORK/body"; then
+  ok "回滚后 edge_conflict 矛盾已消除"
+else
+  bad "回滚后矛盾仍存在"
+fi
+# 回滚本身也要再留一版（历史只能追加，不能抹掉）
+code=$(req GET "$V1/families/$FID/kinship/versions" "$JAR_A" "" "$TOKEN_A")
+VER_AFTER=$(json 'd.versions.length' < "$WORK/body")
+if [ "$VER_AFTER" -gt "$VER_N" ]; then ok "回滚操作已作为新版本留痕"; else bad "回滚没有追加版本"; fi
+
+# 不能连自己
+code=$(req POST "$V1/families/$FID/kinship/edges" "$JAR_A" "{\"fromPersonId\":\"$P_DAD\",\"toPersonId\":\"$P_DAD\",\"kind\":\"parent\"}" "$TOKEN_A")
+expect "$code" 400 "自己连自己被拒绝"
+
+# 三种格式导出都能下载
+for FMT in json csv graphml; do
+  code=$(curl -sS -o "$WORK/kin.$FMT" -w '%{http_code}' -b "$JAR_A" -H "Authorization: Bearer $TOKEN_A" "$V1/families/$FID/kinship/export?format=$FMT")
+  expect "$code" 200 "导出亲属图谱 $FMT"
+done
+if grep -q '"kinship-graph"' "$WORK/kin.json"; then ok "JSON 图谱格式标识正确"; else bad "JSON 导出内容异常"; fi
+if grep -q "关系ID,类型" "$WORK/kin.csv"; then ok "CSV 含中文表头"; else bad "CSV 导出内容异常"; fi
+if grep -q "<graphml" "$WORK/kin.graphml"; then ok "GraphML 结构正确"; else bad "GraphML 导出内容异常"; fi
+
+# 未登录不能写图谱（鉴权闸门）
+code=$(req POST "$V1/families/$FID/kinship/edges" "$JAR_A" "{\"fromPersonId\":\"$P_DAD\",\"toPersonId\":\"$P_SELF\",\"kind\":\"parent\"}" "")
+expect "$code" 401 "未登录不能修改亲属图谱"
+# 未登录也不能读图谱
+code=$(curl -sS -o /dev/null -w '%{http_code}' "$V1/families/$FID/kinship/graph")
+expect "$code" 401 "未登录不能读取亲属图谱"
+
+# ---------- 11. 导出 / 审计 / 回收站 ----------
+step "11/11 导出、审计与回收站"
 code=$(req POST "$V1/families/$FID/exports" "$JAR_A" "" "$TOKEN_A")
 expect "$code" 202 "创建全量导出任务"
 JOB_ID=$(json 'd.jobId' < "$WORK/body")
@@ -292,6 +399,8 @@ if grep -q "manifest.json" <<<"$ZIP_LIST"; then ok "ZIP 内含 manifest.json"; e
 if grep -q "items.csv" <<<"$ZIP_LIST"; then ok "ZIP 内含条目总表 items.csv"; else bad "ZIP 缺少 items.csv"; fi
 if grep -qE "media/.+\.(png|jpg|wav|mp3|m4a|pdf)" <<<"$ZIP_LIST"; then ok "ZIP 内含原始媒体文件"; else bad "ZIP 缺少媒体文件"; fi
 if grep -q "media/index.csv" <<<"$ZIP_LIST"; then ok "ZIP 内含媒体校验清单（sha256）"; else bad "ZIP 缺少媒体清单"; fi
+if grep -q "kinship/relationships.csv" <<<"$ZIP_LIST"; then ok "ZIP 内含家族关系图谱 kinship/relationships.csv"; else bad "ZIP 缺少亲属图谱 CSV"; fi
+if grep -q "kinship/graph.json" <<<"$ZIP_LIST"; then ok "ZIP 内含图谱版本快照 kinship/graph.json"; else bad "ZIP 缺少图谱快照"; fi
 
 code=$(req GET "$V1/families/$FID/audit-logs" "$JAR_A" "" "$TOKEN_A")
 expect "$code" 200 "读取审计日志"

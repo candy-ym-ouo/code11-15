@@ -1,0 +1,229 @@
+/* 家族关系图谱 */
+
+.kinship-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 300px;
+  gap: var(--space-4);
+  margin-top: var(--space-4);
+  align-items: start;
+}
+
+.kinship-main {
+  min-width: 0;
+}
+
+.kinship-side {
+  position: sticky;
+  top: var(--space-4);
+}
+
+.kinship-filter {
+  gap: 6px;
+  margin-bottom: var(--space-2);
+  font-size: 13px;
+  color: var(--color-text-muted, #66707a);
+}
+
+.kinship-canvas-wrap {
+  position: relative;
+  border: 1px solid var(--color-border, #e3e6e8);
+  border-radius: 12px;
+  background: #fafaf8;
+  overflow: hidden;
+}
+
+.kinship-scroll {
+  overflow: auto;
+  max-height: calc(100vh - 240px);
+  padding: var(--space-2);
+}
+
+.kinship-toolbar {
+  position: absolute;
+  top: var(--space-3);
+  right: var(--space-3);
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  background: white;
+  border: 1px solid var(--color-border, #e3e6e8);
+  border-radius: 8px;
+  padding: 4px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+}
+
+.kinship-rowband {
+  fill: rgba(47, 72, 88, 0.03);
+  stroke: rgba(47, 72, 88, 0.08);
+  stroke-dasharray: 3 5;
+}
+
+.kinship-rowlabel {
+  font-size: 11px;
+  fill: #8a929b;
+}
+
+.kinship-node {
+  cursor: pointer;
+}
+
+.kinship-node-box {
+  fill: white;
+  stroke: #c9cfd4;
+  stroke-width: 1.2;
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.08));
+  transition: stroke 0.12s ease, filter 0.12s ease;
+}
+
+.kinship-node-box--active {
+  stroke: #2f4858;
+  stroke-width: 2.4;
+  filter: drop-shadow(0 2px 6px rgba(47, 72, 88, 0.25));
+}
+
+.kinship-node-name {
+  fill: #2f4858;
+  pointer-events: none;
+}
+
+.kinship-node-sub {
+  fill: #8a929b;
+  pointer-events: none;
+}
+
+.kinship-node-orphan {
+  fill: #c9a227;
+}
+
+.kinship-edge {
+  transition: opacity 0.12s ease;
+}
+
+.kinship-edge-label {
+  cursor: pointer;
+}
+
+.kinship-edge-label rect {
+  opacity: 0.92;
+}
+
+.kinship-hint ul {
+  margin: 0;
+  padding-left: 18px;
+  font-size: 13px;
+  color: #555e66;
+  display: grid;
+  gap: 6px;
+}
+
+.kinship-edge-list {
+  list-style: none;
+  margin: var(--space-2) 0;
+  padding: 0;
+  display: grid;
+  gap: var(--space-2);
+}
+
+.kinship-edge-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 13px;
+}
+
+.kinship-suggest-list,
+.kinship-issue-list {
+  list-style: none;
+  margin: var(--space-3) 0 0;
+  padding: 0;
+  display: grid;
+  gap: var(--space-2);
+}
+
+.kinship-suggest-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.kinship-basis-line {
+  font-size: 12px;
+  margin-top: 4px;
+}
+
+.kinship-issue {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  border-left-width: 4px;
+  border-left-style: solid;
+}
+
+.kinship-issue--error {
+  border-left-color: #b43e2c;
+  background: #fdf3f1;
+}
+
+.kinship-issue--warning {
+  border-left-color: #c9a227;
+  background: #fdfaef;
+}
+
+.kinship-versions {
+  max-height: 60vh;
+  overflow-y: auto;
+}
+
+.kinship-version-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: var(--space-2);
+}
+
+.kinship-version-item {
+  border: 1px solid var(--color-border, #e3e6e8);
+  border-radius: 8px;
+  padding: var(--space-2) var(--space-3);
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-3);
+  align-items: center;
+}
+
+.kinship-version-meta {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.kinship-basis {
+  margin-top: var(--space-2);
+  font-size: 12px;
+}
+
+.kinship-basis pre {
+  background: #f4f5f6;
+  border-radius: 6px;
+  padding: 8px;
+  max-height: 160px;
+  overflow: auto;
+  font-size: 11px;
+}
+
+@media (max-width: 900px) {
+  .kinship-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .kinship-side {
+    position: static;
+  }
+}

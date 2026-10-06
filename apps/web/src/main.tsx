@@ -6,6 +6,7 @@ import { AppProviders } from './app/providers';
 import './styles/tokens.css';
 import './styles/base.css';
 import './styles/app.css';
+import './styles/kinship.css';
 
 const root = document.getElementById('root');
 if (!root) throw new Error('缺少 #root 挂载点');

@@ -190,6 +190,44 @@ export async function mergePerson(
         await tx.itemPerson.update({ where: { id: link.id }, data: { personId: targetId } });
       }
     }
+
+    // 家族关系图谱同步重映射：源人物的边改挂到目标人物，自环/重复边软删除，保证图谱不断线
+    const rels = await tx.relationship.findMany({
+      where: { OR: [{ fromPersonId: sourceId }, { toPersonId: sourceId }], deletedAt: null },
+    });
+    let relMoved = 0;
+    let relDropped = 0;
+    for (const r of rels) {
+      const nextFrom = r.fromPersonId === sourceId ? targetId : r.fromPersonId;
+      const nextTo = r.toPersonId === sourceId ? targetId : r.toPersonId;
+      if (nextFrom === nextTo) {
+        // 合并后自己连自己（如两人都与同一个人是配偶，先处理自环）
+        await tx.relationship.update({ where: { id: r.id }, data: { deletedAt: new Date() } });
+        relDropped += 1;
+        continue;
+      }
+      // 无向边规范化端点顺序
+      const [ordFrom, ordTo] =
+        r.kind === 'spouse' || r.kind === 'sibling' ? [nextFrom, nextTo].sort() : [nextFrom, nextTo];
+      const dup = await tx.relationship.findFirst({
+        where: {
+          id: { not: r.id },
+          familyId: ctx.familyId,
+          deletedAt: null,
+          kind: r.kind,
+          fromPersonId: ordFrom,
+          toPersonId: ordTo,
+        },
+      });
+      if (dup) {
+        await tx.relationship.update({ where: { id: r.id }, data: { deletedAt: new Date() } });
+        relDropped += 1;
+      } else {
+        await tx.relationship.update({ where: { id: r.id }, data: { fromPersonId: ordFrom!, toPersonId: ordTo! } });
+        relMoved += 1;
+      }
+    }
+
     await tx.person.update({ where: { id: sourceId }, data: { deletedAt: new Date(), mergedIntoId: targetId } });
     await audit.record(
       {
@@ -198,7 +236,7 @@ export async function mergePerson(
         action: 'person.merge',
         targetType: 'person',
         targetId,
-        diff: { mergedFrom: sourceId } as Prisma.InputJsonValue,
+        diff: { mergedFrom: sourceId, relationshipsMoved: relMoved, relationshipsDropped: relDropped } as Prisma.InputJsonValue,
         ...meta,
       },
       tx,

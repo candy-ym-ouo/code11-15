@@ -29,7 +29,10 @@ export function PersonDetailPage() {
             {person.birthYear ? `${person.birthYear}${person.deathYear ? `–${person.deathYear}` : ''}` : '年份未记录'}
           </p>
         </div>
-        <Button onClick={() => navigate(-1)}>返回</Button>
+        <div className="row" style={{ gap: 8 }}>
+          <Button onClick={() => navigate(`/f/${fid}/kinship`)}>在家族图谱中查看</Button>
+          <Button onClick={() => navigate(-1)}>返回</Button>
+        </div>
       </div>
 
       {person.bio ? (

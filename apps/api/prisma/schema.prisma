@@ -92,6 +92,20 @@ enum PersonRole {
   mentioned
 }
 
+enum KinshipKind {
+  parent
+  spouse
+  sibling
+  kin
+}
+
+enum KinshipSource {
+  manual
+  derived
+  suggested
+  ignored
+}
+
 enum JobType {
   media_thumbnail
   media_waveform
@@ -146,6 +160,8 @@ model Family {
   shareLinks ShareLink[]
   auditLogs  AuditLog[]
   settings   Setting[]
+  relationships Relationship[]
+  relationshipVersions RelationshipVersion[]
 
   @@map("families")
 }
@@ -202,9 +218,54 @@ model Person {
 
   family Family       @relation(fields: [familyId], references: [id], onDelete: Cascade)
   links  ItemPerson[]
+  relationsFrom Relationship[] @relation("RelationshipFrom")
+  relationsTo   Relationship[] @relation("RelationshipTo")
 
   @@index([familyId, name])
   @@map("people")
+}
+
+model Relationship {
+  id         String        @id @default(cuid())
+  familyId   String        @map("family_id")
+  fromPersonId String      @map("from_person_id")
+  toPersonId String        @map("to_person_id")
+  kind       KinshipKind
+  label      String?
+  note       String?
+  source     KinshipSource @default(manual)
+  /// 推导建议时记录依据（物品共现、复合称谓…），便于界面解释「为什么这么猜」
+  basis      Json?
+  createdBy  String        @map("created_by")
+  createdAt  DateTime      @default(now()) @map("created_at")
+  updatedAt  DateTime      @updatedAt @map("updated_at")
+  deletedAt  DateTime?     @map("deleted_at")
+
+  family Family @relation(fields: [familyId], references: [id], onDelete: Cascade)
+  fromPerson Person @relation("RelationshipFrom", fields: [fromPersonId], references: [id], onDelete: Cascade)
+  toPerson Person @relation("RelationshipTo", fields: [toPersonId], references: [id], onDelete: Cascade)
+
+  @@index([familyId])
+  @@index([fromPersonId])
+  @@index([toPersonId])
+  @@map("relationships")
+}
+
+model RelationshipVersion {
+  id         String   @id @default(cuid())
+  familyId   String   @map("family_id")
+  version    Int
+  action     String
+  reason     String?
+  snapshot   Json
+  createdBy  String   @map("created_by")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  family Family @relation(fields: [familyId], references: [id], onDelete: Cascade)
+
+  @@unique([familyId, version])
+  @@index([familyId, createdAt])
+  @@map("relationship_versions")
 }
 
 model Item {

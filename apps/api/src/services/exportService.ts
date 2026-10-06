@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import fsp from 'node:fs/promises';
 import path from 'node:path';
 import archiver from 'archiver';
-import { CATEGORY_LABELS, ITEM_STATUS_LABELS, VISIBILITY_LABELS, formatAcquired, htmlToText } from '@heirloom/shared';
+import { CATEGORY_LABELS, ITEM_STATUS_LABELS, KINSHIP_KIND_LABELS, VISIBILITY_LABELS, formatAcquired, htmlToText } from '@heirloom/shared';
 import type { Job } from '@prisma/client';
 import { prisma } from '../db';
 import { config } from '../config';
@@ -178,6 +178,82 @@ export async function buildExportZip(job: Job): Promise<{ file: string; items: n
 
   archive.append(csv.join('\n'), { name: `${root}/items.csv` });
   archive.append(mediaIndex.join('\n'), { name: `${root}/media/index.csv` });
+
+  // —— 家族关系图谱：people/relationships CSV + 全量 JSON 快照（含版本历史）——
+  const [kinPeople, kinEdges, kinVersions] = await Promise.all([
+    prisma.person.findMany({
+      where: { familyId, deletedAt: null },
+      select: { id: true, name: true, relation: true, birthYear: true, deathYear: true, bio: true },
+      orderBy: { name: 'asc' },
+    }),
+    prisma.relationship.findMany({ where: { familyId, deletedAt: null }, orderBy: { createdAt: 'asc' } }),
+    prisma.relationshipVersion.findMany({ where: { familyId }, orderBy: { version: 'asc' } }),
+  ]);
+
+  const kinPeopleCsv = [
+    '人物ID,称呼,关系称谓,出生年份,去世年份,小传',
+    ...kinPeople.map((p) =>
+      [
+        p.id,
+        csvCell(p.name),
+        csvCell(p.relation),
+        p.birthYear ?? '',
+        p.deathYear ?? '',
+        csvCell(p.bio),
+      ].join(','),
+    ),
+  ].join('\n');
+  archive.append(kinPeopleCsv, { name: `${root}/kinship/people.csv` });
+
+  const kinRelCsv = [
+    '关系ID,类型,人物A ID,人物B ID,自定义称谓,来源,依据,建立时间',
+    ...kinEdges.map((e) =>
+      [
+        e.id,
+        csvCell(KINSHIP_KIND_LABELS[e.kind]),
+        e.fromPersonId,
+        e.toPersonId,
+        csvCell(e.label),
+        csvCell({ manual: '手工', derived: '推导采纳', suggested: '待确认', ignored: '已忽略' }[e.source]),
+        csvCell(e.basis ? JSON.stringify(e.basis) : ''),
+        e.createdAt.toISOString(),
+      ].join(','),
+    ),
+  ].join('\n');
+  archive.append(kinRelCsv, { name: `${root}/kinship/relationships.csv` });
+  archive.append(
+    JSON.stringify(
+      {
+        app: '家中物品来历册',
+        kind: 'kinship-graph',
+        version: 1,
+        exportedAt: new Date().toISOString(),
+        people: kinPeople,
+        relationships: kinEdges.map((e) => ({ ...e, basis: e.basis ?? undefined })),
+        versions: kinVersions.map((v) => ({ version: v.version, action: v.action, reason: v.reason, createdAt: v.createdAt.toISOString(), snapshot: v.snapshot })),
+      },
+      null,
+      2,
+    ),
+    { name: `${root}/kinship/graph.json` },
+  );
+  archive.append(
+    [
+      '家族关系图谱导出说明',
+      '',
+      `导出时间：${new Date().toISOString()}`,
+      `人物数：${kinPeople.length}；关系数：${kinEdges.length}；历史版本数：${kinVersions.length}`,
+      '',
+      '文件说明：',
+      '1. people.csv / relationships.csv 可直接用 Excel/WPS 打开查看。',
+      '2. graph.json 是完整图谱快照（含每一次人工校正/推导的版本留痕），',
+      '   也可在系统内「家族图谱」页单独导出 GraphML，用 Gephi/yEd 打开。',
+      '3. parent（父母）边是有向的：from 是父母/长辈，to 是子女/晚辈；',
+      '   spouse（配偶）、sibling（同胞）为无向边。',
+    ].join('\n'),
+    { name: `${root}/kinship/README.txt` },
+  );
+
   archive.append(
     [
       '家中物品来历册 · 导出包',
@@ -186,6 +262,7 @@ export async function buildExportZip(job: Job): Promise<{ file: string; items: n
       `导出时间：${new Date().toISOString()}`,
       `条目数：${items.length}`,
       `媒体文件数：${mediaTotal}`,
+      `家族图谱：${kinPeople.length} 人 / ${kinEdges.length} 条关系（见 kinship/ 目录）`,
       '',
       '如何阅读：',
       '1. items.csv 可用 Excel/WPS 打开，是全部条目的总表。',
@@ -206,7 +283,7 @@ export async function buildExportZip(job: Job): Promise<{ file: string; items: n
         version: 1,
         exportedAt: new Date().toISOString(),
         family: { id: family.id, name: family.name },
-        counts: { items: items.length, media: mediaTotal },
+        counts: { items: items.length, media: mediaTotal, people: kinPeople.length, relationships: kinEdges.length },
         mediaBytes,
         jobId: job.id,
       },

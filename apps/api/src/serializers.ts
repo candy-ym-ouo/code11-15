@@ -5,6 +5,8 @@ import type {
   ItemNote,
   ItemPerson,
   Person,
+  Relationship,
+  RelationshipVersion,
   ShareLink,
   User,
 } from '@prisma/client';
@@ -113,6 +115,34 @@ export function toPersonDto(p: Person & { _count?: { links: number } }) {
     bio: p.bio,
     itemCount: p._count?.links ?? 0,
     createdAt: p.createdAt.toISOString(),
+  };
+}
+
+export function toRelationshipDto(r: Relationship) {
+  return {
+    id: r.id,
+    familyId: r.familyId,
+    fromPersonId: r.fromPersonId,
+    toPersonId: r.toPersonId,
+    kind: r.kind,
+    label: r.label,
+    note: r.note,
+    source: r.source,
+    basis: r.basis ?? null,
+    createdAt: r.createdAt.toISOString(),
+    updatedAt: r.updatedAt.toISOString(),
+  };
+}
+
+export function toRelationshipVersionDto(v: RelationshipVersion) {
+  return {
+    id: v.id,
+    version: v.version,
+    action: v.action,
+    reason: v.reason,
+    snapshot: v.snapshot,
+    createdBy: v.createdBy,
+    createdAt: v.createdAt.toISOString(),
   };
 }
 

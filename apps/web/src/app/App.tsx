@@ -13,6 +13,7 @@ import { ItemFormPage } from '../features/items/ItemFormPage';
 import { ItemPrintPage } from '../features/items/ItemPrintPage';
 import { PeoplePage } from '../features/people/PeoplePage';
 import { PersonDetailPage } from '../features/people/PersonDetailPage';
+import { KinshipPage } from '../features/kinship/KinshipPage';
 import { MembersPage } from '../features/members/MembersPage';
 import { AuditPage } from '../features/audit/AuditPage';
 import { SettingsPage } from '../features/settings/SettingsPage';
@@ -69,6 +70,7 @@ export function App() {
         <Route path="items/:itemId/print" element={<ItemPrintPage />} />
         <Route path="people" element={<PeoplePage />} />
         <Route path="people/:personId" element={<PersonDetailPage />} />
+        <Route path="kinship" element={<KinshipPage />} />
         <Route
           path="members"
           element={
